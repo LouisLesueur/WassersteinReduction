@@ -1,6 +1,6 @@
 import torch
 from tqdm import tqdm
-from tools import gen_K
+from tools import gen_K, cost
 
 class Sinkhorn:
 
@@ -38,6 +38,7 @@ class Sinkhorn:
         v = torch.ones((k,T)).to(self.device)
         u = torch.ones((k,n)).to(self.device)
 
+        costs = []
 
         for l in tqdm(range(self.niter)):
 

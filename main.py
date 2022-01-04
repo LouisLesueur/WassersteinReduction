@@ -49,6 +49,9 @@ if __name__ == "__main__":
     M = torch.arange(1, 30, 1)
     costs = torch.zeros(M.shape[0])
 
+    bary_dif = []
+    loss = torch.nn.MSELoss()
+
     for i,m in enumerate(M):
 
         dimsolver = JLProjWasserstein(solver, m, device=device)
@@ -61,5 +64,9 @@ if __name__ == "__main__":
         print("cost ratio: ", cost2/cost1)
         costs[i] = cost2/cost1
 
+        bary_dif.append(loss(bary, bary2))
+        
+    plt.plot(M.cpu(), bary_dif)
+    plt.show()
     plt.plot(M.cpu(), costs.cpu())
     plt.show()
