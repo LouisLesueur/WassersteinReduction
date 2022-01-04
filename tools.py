@@ -12,6 +12,13 @@ def cost(K,couplings):
     return (couplings*K).sum()
 
 def gen_K(X, support, eps):
+    '''
+    Generate the Cost matrix for Sinkhorn algorithm
+
+    - X (shape [k,T,d]): supports of the distributions (point clouds)
+    - support (shape [n]): support of the output barycenter
+    - eps: regularization parameter
+    '''
     
     n = support.shape[0]
     k,T,d = X.shape
