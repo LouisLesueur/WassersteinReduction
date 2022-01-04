@@ -1,72 +1,63 @@
 import torch
-import math
-import matplotlib.pyplot as plt
-import numpy as np
 from tqdm import tqdm
+from tools import gen_K
 
 class Sinkhorn:
 
-    def __init__(self, niter=3000, eps=0.005, device="cuda"):
+    def __init__(self, niter=3000, eps=0.01, device="cuda"):
         self.niter = niter
-        self.eps = eps
         self.device = device
+        self.eps = eps
 
-    def solve(self, lambdas, mus):
+    def solve(self, lambdas, X, a, supp):
         '''
         Computes the Wasserstein barycenter W_2 between the mus
 
+        - K (shape [k,n,T]): cost matrix
         - lambdas (shape k): weights
-        - mus (shape [k, n]): discrete distributions
-        - Cs (shape [k, n, n]): cost matrices
+        - X (shape [k, T, d]): points clouds
+        - a (shape [k, T]): weights
+        - supp (shape [n, d]): barycenter support
         '''
 
         lambdas = lambdas.to(self.device)
-        mus = mus.to(self.device)
+        X = X.to(self.device)
+        a = a.to(self.device)
+        supp = supp.to(self.device)
 
-        k,n = mus.shape
-        v = torch.ones((k,n)).to(device)
-        u = v.clone()
+        # Save normalization factors
+        factors = a.sum(axis=1)
+        a = torch.div(a.T, factors).T
 
-        t = torch.linspace(0,1,n).to(device)
-        [Y,X] = torch.meshgrid(t,t).to(device)
-        K = torch.exp(-(X-Y)**2/self.eps)
+        k,T,d = X.shape
+        n = supp.shape[0]
+
+        K = gen_K(X, supp, self.eps).to(self.device)
+
+        couplings = torch.zeros((k,n,T))
+        v = torch.ones((k,T)).to(self.device)
+        u = torch.ones((k,n)).to(self.device)
+
 
         for l in tqdm(range(self.niter)):
 
             for s in range(k):
-                v[s] = mus[s] / (K.T@u[s])
+                v[s] = a[s] / (K[s].T@u[s])
 
-            a = torch.zeros(n).to(device)
+            b = torch.zeros(n).to(self.device)
             for s in range(k):
-                a = a + lambdas[s]*torch.log(K@v[s])
-            a = torch.exp(a)
+                b = b + lambdas[s]*torch.log(K[s]@v[s])
+            b = torch.exp(b)
 
             for s in range(k):
-                u[s] = a / (K@v[s])
-        return a
+                u[s] = b / (K[s]@v[s])
 
-def gauss(x, sigma, mu):
-    factor = 1/(sigma*math.sqrt(2*torch.pi))
-    in_exp = ((x-mu)**2) / (2*sigma**2)
-    return factor*torch.exp(-in_exp)
+        for s in range(k):
+            couplings[s] = torch.diag(u[s])@K[s]@torch.diag(v[s])
 
-# Just for testing
-if __name__ == "__main__":
-    X = torch.arange(0,10,0.1)
-    a = gauss(X,1,4)
-    a = a/a.sum()
-    b = gauss(X,1,8)
-    b = b/b.sum()
+        #Cancel normalization
+        norm_fact = (lambdas*factors).sum()
+        b = b*norm_fact
 
-    lambdas = torch.tensor([0.5,0.5])
-    mus = torch.stack((a,b))
 
-    solver = Sinkhorn()
-    bary = solver.solve(lambdas, mus)
-
-    plt.plot(X,a)
-    plt.plot(X,b)
-    plt.plot(X,bary)
-    plt.show()
-
-    mus = torch.stack((a,b))
+        return b, couplings, K
