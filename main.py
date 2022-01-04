@@ -15,14 +15,14 @@ if __name__ == "__main__":
     d = 1000 #dimension 
     m = 5 #dimension for reduction
 
-    eps = 10
+    eps = 0.0005
     niter = 1000
 
     device = "cpu"
 
     support = torch.zeros((T,d))
     for ind in range(T):
-        support[ind,ind] = 1
+        support[ind,ind] = 1/T
     #support += 0.01*torch.randn((T,d))
 
     # Point clouds
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     cost1 = cost(K, couplings.to(device))
     print(f"bary 1: computed in {t1-t0}s, cost={cost1}")
 
-    M = torch.arange(1, 100, 1)
+    M = torch.arange(1, 30, 1)
     costs = torch.zeros(M.shape[0])
 
     for i,m in enumerate(M):
@@ -55,7 +55,7 @@ if __name__ == "__main__":
         t2 = time.time()
         bary2, couplings2, K2 = dimsolver.solve(lambdas, X, a, support )
         t3 = time.time()
-        cost2 = cost(K2, couplings2.to(device))
+        cost2 = cost(K2, couplings.to(device))
         print(f"bary 2: computed in {t3-t2}s, cost={cost2}")
 
         print("cost ratio: ", cost2/cost1)
