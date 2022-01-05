@@ -4,24 +4,22 @@ from tools import gen_K, cost
 
 class Sinkhorn:
 
-    def __init__(self, niter=3000, eps=0.01, device="cuda"):
-        self.niter = niter
+    def __init__(self, thresh=1e-10, eps=0.01, device="cuda"):
+        self.thresh = thresh
         self.device = device
         self.eps = eps
+        self.C = None
 
-    def solve(self, lambdas, X, a, supp):
+    def solve(self, lambdas, a, supp, compute_couplings=True):
         '''
         Computes the Wasserstein barycenter W_2 between the mus
 
-        - K (shape [k,n,T]): cost matrix
         - lambdas (shape k): weights
-        - X (shape [k, T, d]): points clouds
-        - a (shape [k, T]): weights
+        - a (shape [k, n]): weights
         - supp (shape [n, d]): barycenter support
         '''
 
         lambdas = lambdas.to(self.device)
-        X = X.to(self.device)
         a = a.to(self.device)
         supp = supp.to(self.device)
 
@@ -29,36 +27,43 @@ class Sinkhorn:
         factors = a.sum(axis=1)
         a = torch.div(a.T, factors).T
 
-        k,T,d = X.shape
-        n = supp.shape[0]
+        k = a.shape[0]
+        n, d = supp.shape
 
-        K = gen_K(X, supp, self.eps).to(self.device)
+        self.C = torch.cdist(supp, supp)
+        K = torch.exp(-(self.C**2)/self.eps)
 
-        couplings = torch.zeros((k,n,T))
-        v = torch.ones((k,T)).to(self.device)
+
+        v = torch.ones((k,n)).to(self.device)
         u = torch.ones((k,n)).to(self.device)
 
-        costs = []
+        old_bary = torch.ones(n).to(self.device)
+        b = torch.zeros(n).to(self.device)
 
-        for l in tqdm(range(self.niter)):
+        while torch.linalg.norm(b-old_bary) > self.thresh:
+
+            old_bary = b.clone()
 
             for s in range(k):
-                v[s] = a[s] / (K[s].T@u[s])
+                v[s] = a[s] / (K.T@u[s])
 
             b = torch.zeros(n).to(self.device)
             for s in range(k):
-                b = b + lambdas[s]*torch.log(K[s]@v[s])
+                b = b + lambdas[s]*torch.log(K@v[s])
             b = torch.exp(b)
 
             for s in range(k):
-                u[s] = b / (K[s]@v[s])
+                u[s] = b / (K@v[s])
 
-        for s in range(k):
-            couplings[s] = torch.diag(u[s])@K[s]@torch.diag(v[s])
+
+        couplings = None
+        if compute_couplings:
+            couplings = torch.zeros_like(K)
+            for s in range(k):
+                couplings[s] = torch.diag(u[s])@K[s]@torch.diag(v[s])
 
         #Cancel normalization
         norm_fact = (lambdas*factors).sum()
         b = b*norm_fact
 
-
-        return b, couplings, K
+        return b, couplings

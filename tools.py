@@ -9,7 +9,7 @@ def cost(K,couplings):
     - couplings (shape [k, n, T]) the couplings
     '''
 
-    return (couplings*K).sum()
+    return torch.multiply(couplings,K).sum()
 
 def gen_K(X, support, eps):
     '''

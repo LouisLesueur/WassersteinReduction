@@ -9,49 +9,45 @@ from tools import *
 if __name__ == "__main__":
 
     # Parameters
-    k = 10 #input distributions
-    T = 20 #support for input distributions
-    n = T #support for barycenter
+    k = 10  #input distributions
     d = 1000 #dimension 
-    m = 5 #dimension for reduction
 
-    eps = 0.0005
-    niter = 1000
+    eps = 0.001
+    thresh = 1e-5
+    n = 1000
+    max_m = 30
+    n_trials = 10
 
     device = "cpu"
+    
+    support = torch.rand((n,d))/n
+    print(f"{n} points in support !")
 
-    support = torch.zeros((T,d))
-    for ind in range(T):
-        support[ind,ind] = 1/T
-    #support += 0.01*torch.randn((T,d))
-
-    # Point clouds
-    X = torch.zeros((k,T,d))
-    for s in range(k):
-        X[s] = support.clone()
-
-    t = torch.arange(0,T)
+    t = torch.arange(0,n)
     Gaussian = lambda t0,sigma: torch.exp(-(t-t0)**2/(2*sigma**2))
 
-    a = torch.zeros((k,T)) # weights
+    #a = torch.randn((k,n)) # weights
+
+    a = torch.zeros((k,n)) # weights
     for s in range(k):
         a[s] = Gaussian(s, 1)
 
     lambdas = torch.ones(k)/k # lambdas
 
-    solver = Sinkhorn(niter=niter, eps=eps, device=device)
-    t0 = time.time()
-    bary, couplings, K = solver.solve(lambdas, X, a, support)
-    t1 = time.time()
-    cost1 = cost(K, couplings.to(device))
-    print(f"bary 1: computed in {t1-t0}s, cost={cost1}")
+    solver = Sinkhorn(thresh, eps=eps, device=device)
 
+    # To get couplings
+    bary, couplings = solver.solve(lambdas, a, support, True)
+    
+    t0 = time.time()
+    bary, _ = solver.solve(lambdas, a, support, False)
+    cost1 = cost(couplings, solver.C)
+    t1 = time.time()
+    print(f"bary 1 {bary}: computed in {t1-t0}s, cost={cost1}")
     ref_time = t1-t0
 
-    max_m = 20
-    n_trials = 5
     
-    M = torch.arange(max_m)
+    M = torch.arange(1,max_m+1,1)
     
     costs = torch.zeros((n_trials, max_m))
     bary_dif = torch.zeros((n_trials, max_m))
@@ -65,18 +61,18 @@ if __name__ == "__main__":
 
             dimsolver = JLProjWasserstein(solver, m, device=device)
             t2 = time.time()
-            bary2, couplings2, K2 = dimsolver.solve(lambdas, X, a, support )
+            bary2, couplings2 = dimsolver.solve(lambdas, a, support )
             t3 = time.time()
-            cost2 = cost(K2, couplings.to(device))
+            cost2 = cost(couplings, dimsolver.solver.C)
             print(f"bary 2: computed in {t3-t2}s, cost={cost2}")
 
             red_time = t3 - t2
 
-            print("cost ratio: ", cost2/cost1)
+            print("cost ratio: ", cost1/cost2)
             
-            costs[trial, i] = cost2/cost1
+            costs[trial, i] = cost1/cost2
             bary_dif[trial, i] = loss(bary, bary2)
-            speedup[trial, i] = red_time/ref_time
+            speedup[trial, i] = ref_time/red_time
 
 
     plt.errorbar(M.cpu(), torch.mean(bary_dif, axis=0), torch.std(bary_dif, axis=0), ecolor='lightgray')
