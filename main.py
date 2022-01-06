@@ -4,7 +4,6 @@ from JLWasserstein import JLProjWasserstein
 import math
 import matplotlib.pyplot as plt
 import time
-from tools import *
 from tqdm import tqdm
 
 if __name__ == "__main__":
