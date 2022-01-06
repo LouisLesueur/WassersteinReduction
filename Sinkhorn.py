@@ -23,9 +23,6 @@ class Sinkhorn:
         a = a.to(self.device)
         supp = supp.to(self.device)
 
-        # Save normalization factors
-        factors = a.sum(axis=1)
-        a = torch.div(a.T, factors).T
 
         k = a.shape[0]
         n, d = supp.shape
@@ -61,9 +58,5 @@ class Sinkhorn:
             couplings = torch.zeros_like(K)
             for s in range(k):
                 couplings[s] = torch.diag(u[s])@K[s]@torch.diag(v[s])
-
-        #Cancel normalization
-        norm_fact = (lambdas*factors).sum()
-        b = b*norm_fact
 
         return b, couplings

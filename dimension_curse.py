@@ -11,19 +11,15 @@ if __name__ == "__main__":
     k = 2  #input distributions
     d = 1000 #dimension 
 
-    #base_support = torch.arange(points_per_dim).float()
-    #support = torch.cartesian_prod(*[base_support for _ in range(d)])
-    #n = support.shape[0]
-    #support /= n
-
     eps = 0.01
     thresh = 1e-5
-    n = 1000
+    n0 = 4
     n_trials = 10
 
     device = "cpu"
 
-    D = torch.linspace(1,10000,10)
+    D = torch.arange(8)
+
 
     times = torch.zeros((n_trials, D.shape[0]))
     
@@ -32,8 +28,8 @@ if __name__ == "__main__":
         print(f"trial {trial+1}/{n_trials}")
 
         for i,d in enumerate(D):
-
             d = int(d)
+            n = n0**d
             support = torch.rand((n,d))/n
 
             a = torch.randn((k,n)) # weights
