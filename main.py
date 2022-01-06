@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     # To get couplings
     bary, couplings = solver.solve(lambdas, a, support, True)
-    cost1 = cost(couplings, solver.C)
+    cost1 = torch.multiply(couplings,solver.C).sum()
 
     t = torch.arange(n)
     plt.figure(figsize=(10,5))
@@ -70,7 +70,7 @@ if __name__ == "__main__":
             t2 = time.time()
             bary2, couplings2 = dimsolver.solve(lambdas, a, support )
             t3 = time.time()
-            cost2 = cost(couplings, dimsolver.solver.C)
+            cost2 = torch.multiply(couplings,dimsolver.solver.C).sum() 
 
             red_time = t3 - t2
             
