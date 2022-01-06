@@ -1,6 +1,5 @@
 import torch
 from tqdm import tqdm
-from tools import gen_K, cost
 
 class Sinkhorn:
 
